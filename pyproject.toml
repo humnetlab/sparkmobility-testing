@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sparkmobility"
+version = "0.1.0"
+description = "Human mobility basic package"
+readme = "README.md"
+license = "MIT"
+
+authors = [
+  { name = "Shangqing Cao", email = "caoalbert@berkeley.edu" }
+]
+
+requires-python = ">=3.11"
+
+dependencies = [
+  "numpy==1.26.4",
+  "py4j==0.10.9.7",
+  "pyarrow==14.0.2",
+  "pyproj==3.6.1",
+  "setuptools==69.5.1",
+  "pyspark==3.5.1"
+]
