@@ -14,3 +14,8 @@ def ensure_jar():
 ensure_jar()
 
 from .settings import config
+
+from .settings import download_and_extract, configure_env
+
+download_and_extract()
+configure_env()
