@@ -7,7 +7,8 @@ class Stays:
                  hexResolution=8, regionalTemporalThreshold=3600, passing=True,
                  startTimestamp="2022-11-01 10:50:30", endTimestamp="2023-02-02 12:20:45",
                  longitude=None, latitude=None, homeToWork=8, workToHome=19,
-                 workDistanceLimit=500, workFreqCountLimit=3, timeZone="America/Mexico_City", columns={}):
+                 workDistanceLimit=500, workFreqCountLimit=3, timeZone="America/Mexico_City", 
+                 timeFormat="UNIX", columns={}):
         if longitude is None:
             longitude = [-99.3, -98.7]
         if latitude is None:
@@ -28,6 +29,7 @@ class Stays:
         self.workDistanceLimit = workDistanceLimit
         self.workFreqCountLimit = workFreqCountLimit
         self.timeZone = timeZone
+        self.timeFormat = timeFormat
         self.column_names = columns
         self.params_file = self._create_parameters_file("./parameters.json")
 
@@ -70,7 +72,7 @@ class Stays:
         pipeline = self._get_pipeline_instance(spark)
         columnNames = self._create_hashmap(spark)
         print(type(columnNames))
-        pipeline.getStays(input_path, output_path, columnNames, self.params_file)
+        pipeline.getStays(input_path, output_path, self.timeFormat, columnNames, self.params_file)
         return "stays data based on default parameters"
 
     @spark_session
