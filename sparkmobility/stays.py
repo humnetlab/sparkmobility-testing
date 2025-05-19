@@ -65,7 +65,7 @@ class Stays:
     
     def _get_pipeline_instance(self, spark):
         jvm = spark._jvm
-        return jvm.pipelines.PipeExample()
+        return jvm.pipelines.Pipelines()
 
     @spark_session
     def get_stays(spark, self, input_path, output_path):
