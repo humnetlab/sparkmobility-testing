@@ -64,11 +64,14 @@ def to_parquet_robust(df, file_path, **kwargs):
         print(f"Trying alternative engine: {alt_engine}")
         return df.to_parquet(file_path, engine=alt_engine, **kwargs)
 
-# Add current directory to path
-sys.path.append('.') 
+# Add current directory to path for module imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
 
-# Set working directory (adjust as needed)
-os.chdir('/home/aparimit/mob_package/sparkmobility-scala/timegeo_rebuild')
+# Set working directory to script location if not already there
+if os.getcwd() != current_dir:
+    print(f"Changing working directory from {os.getcwd()} to {current_dir}")
+    os.chdir(current_dir)
 
 # Import and reload parquet-optimized modules
 import src_parquet.SRFiltered_to_SimInput
@@ -319,12 +322,15 @@ def main_workflow(input_parquet_path, num_cpus=16):
     # Use original parquet file for C++ module
     print(f"Running C++ parameter generation with original file: {input_parquet_path}")
     
-    # Try direct binary call first to bypass Python binding memory issues
-    success = run_cpp_module_direct(
+    # CRITICAL: Run parameter generation for BOTH non-commuters AND commuters
+    # This matches the notebook workflow and enables work locations in simulation
+    
+    print("2a: Generating parameters for NON-COMMUTERS...")
+    success_noncomm = run_cpp_module_direct(
         input_path=input_parquet_path,
         output_dir="./results/Parameters",
-        commuter_mode=False,  # Explicitly set as in notebook
-        min_num_stay=2,       # Use original working parameters
+        commuter_mode=False,  # Non-commuters first
+        min_num_stay=2,
         max_num_stay=3000,
         nw_thres=1.0,
         slot_interval=600,
@@ -332,8 +338,8 @@ def main_workflow(input_parquet_path, num_cpus=16):
         gamma=-0.21
     )
     
-    if not success:
-        print("Direct binary call failed, trying Python binding...")
+    if not success_noncomm:
+        print("Direct binary call failed for non-commuters, trying Python binding...")
         try:
             import module_2_3_1
             result = module_2_3_1.run_DT_simulation(
@@ -347,10 +353,42 @@ def main_workflow(input_parquet_path, num_cpus=16):
                 rho=0.6,
                 gamma=-0.21
             )
-            print(f"C++ module completed successfully")
-            print(f"Result: {result}")
+            print(f"C++ module (non-commuters) completed successfully")
         except Exception as e:
-            print(f"C++ module failed: {e}")
+            print(f"C++ module (non-commuters) failed: {e}")
+            return False
+    
+    print("2b: Generating parameters for COMMUTERS...")
+    success_comm = run_cpp_module_direct(
+        input_path=input_parquet_path,
+        output_dir="./results/Parameters",
+        commuter_mode=True,  # Commuters second - THIS WAS MISSING!
+        min_num_stay=2,
+        max_num_stay=3000,
+        nw_thres=1.0,
+        slot_interval=600,
+        rho=0.6,
+        gamma=-0.21
+    )
+    
+    if not success_comm:
+        print("Direct binary call failed for commuters, trying Python binding...")
+        try:
+            import module_2_3_1
+            result = module_2_3_1.run_DT_simulation(
+                input_path=input_parquet_path,
+                output_dir="./results/Parameters",
+                commuter_mode=True,
+                min_num_stay=2,
+                max_num_stay=3000,
+                nw_thres=1.0,
+                slot_interval=600,
+                rho=0.6,
+                gamma=-0.21
+            )
+            print(f"C++ module (commuters) completed successfully")
+        except Exception as e:
+            print(f"C++ module (commuters) failed: {e}")
             return False
 
     # Step 3: Decode Parameter Values (only if parameter files have content)
@@ -362,17 +400,17 @@ def main_workflow(input_parquet_path, num_cpus=16):
     commuter_param_file = './results/Parameters/Commuters/ParametersCommuters.txt'
     noncommuter_param_file = './results/Parameters/NonCommuters/ParametersNonCommuters.txt'
     
-    # Use the right files (check both locations)
-    if not os.path.exists(commuter_param_file):
-        commuter_param_file = './results/Parameters/ParametersCommuters.txt'
-    if not os.path.exists(noncommuter_param_file):
-        noncommuter_param_file = './results/Parameters/ParametersNonCommuters.txt'
-    
     # Get file sizes
     commuter_size = os.path.getsize(commuter_param_file) if os.path.exists(commuter_param_file) else 0
     noncommuter_size = os.path.getsize(noncommuter_param_file) if os.path.exists(noncommuter_param_file) else 0
     
     print(f"Parameter file sizes: Commuters={commuter_size}, NonCommuters={noncommuter_size}")
+    
+    # Verify we have both commuter and non-commuter parameters
+    if commuter_size == 0:
+        print("⚠️  Warning: No commuter parameters found - this will result in no work locations!")
+    if noncommuter_size == 0:
+        print("⚠️  Warning: No non-commuter parameters found!")
     
     if commuter_size > 0 or noncommuter_size > 0:
         b1_array = list(range(1, 21))
@@ -387,13 +425,15 @@ def main_workflow(input_parquet_path, num_cpus=16):
             noncommuter_output_path='./results/Parameters/ParametersNonCommuters.txt'
         )
         print("Parameter decoding completed")
+        
+        # Verify decoded files
+        final_comm_size = os.path.getsize('./results/Parameters/ParametersCommuters.txt') if os.path.exists('./results/Parameters/ParametersCommuters.txt') else 0
+        final_noncomm_size = os.path.getsize('./results/Parameters/ParametersNonCommuters.txt') if os.path.exists('./results/Parameters/ParametersNonCommuters.txt') else 0
+        print(f"Decoded parameter files: Commuters={final_comm_size}, NonCommuters={final_noncomm_size}")
+        
     else:
-        print("No parameter files to decode - creating empty files")
-        # Create empty parameter files for the workflow to continue
-        with open('./results/Parameters/ParametersCommuters.txt', 'w') as f:
-            f.write("")  # Empty file
-        with open('./results/Parameters/ParametersNonCommuters.txt', 'w') as f:
-            f.write("")  # Empty file
+        print("❌ ERROR: No parameter files found - workflow cannot continue!")
+        return False
 
     # Step 4: Data Processing Pipeline using PARQUET files
     print("\n" + "="*60)
@@ -493,11 +533,8 @@ def main_workflow(input_parquet_path, num_cpus=16):
     
     print(f"Running optimized simulation with {num_cpus} parallel processes...")
     
-    # Check if we have actual data to simulate
-    from src_parquet.Simulation_Mapper import simulate_all_parallel_optimized
-    
-    # Use the optimized parallel simulation that tracks progress and avoids empty files
-    simulate_all_parallel_optimized(
+    # Use the original working simulation function
+    simulate_all_parallel(
         num_cpus=num_cpus,
         other_locations_file='./results/Simulation/otherlocation.txt',
         activeness_file='./results/Simulation/activeness.txt',
@@ -566,13 +603,26 @@ def main_workflow(input_parquet_path, num_cpus=16):
         output_file='./results/figs/2-StayDuration_All.png'
     )
 
-    # 8c: Comprehensive mobility pattern analysis
+    # 8c: Comprehensive mobility pattern analysis (including missing plots)
     print("8c: Generating comprehensive mobility analysis...")
     analyze_mobility_patterns_parquet(
         sim_parquet='./results/Simulation/simulation_results.parquet',
         cdr_parquet='./results/SRFiltered_to_SimInput/FAUsers_Cleaned_Formatted.parquet',
         output_dir='./results/figs/'
     )
+    
+    # Additional validation plots
+    print("8d: Generating additional validation plots...")
+    
+    # Generate department validation if data is available
+    try:
+        plot_dept_validation(
+            mapped_dir='./results/Simulation/Mapped/',
+            output='./results/figs/6-dept_validation.png'
+        )
+        print("Department validation plot generated successfully")
+    except Exception as e:
+        print(f"Could not generate department validation plot: {e}")
 
     print("\n" + "="*80)
     print("WORKFLOW COMPLETED SUCCESSFULLY!")
@@ -582,6 +632,12 @@ def main_workflow(input_parquet_path, num_cpus=16):
     print(f"  - Simulation results: ./results/Simulation/")
     print(f"  - Analysis: ./results/Analysis/")
     print(f"  - Plots: ./results/figs/")
+    print(f"    * 1-HourlyTripCount.png: Hourly trip patterns")
+    print(f"    * 2-StayDuration_All.png: Stay duration distributions")
+    print(f"    * 3-TripDistance.png: Trip distance distributions")
+    print(f"    * 4-numVisitedLocations.png: Daily visited location counts")
+    print(f"    * 5-LocationRank-User1.png: Location visit frequency rankings")
+    print(f"    * 6-dept_validation.png: Departure time validation")
     print("="*80)
     
     return True
