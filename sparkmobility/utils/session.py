@@ -1,4 +1,3 @@
-import configparser
 import functools
 from pyspark.sql import SparkSession
 from sparkmobility import config
@@ -36,14 +35,3 @@ def spark_session(func):
         finally:
             spark.stop()
     return wrapper
-
-# Example usage of the decorator:
-#
-# @spark_session
-# def processing_logic(spark, data):
-#     # your function logic using the spark session
-#     df = spark.read.json(data)
-#     return df.count()
-#
-# The Spark session is automatically created before processing_logic is executed,
-# and stopped afterwards.

@@ -2,7 +2,7 @@ from sparkmobility.utils import spark_session
 import json
 import os
 
-class Stays:
+class StayDetection:
     def __init__(self, deltaT=300, spatialThreshold=300, speedThreshold=6.0, temporalThreshold=300,
                  hexResolution=8, regionalTemporalThreshold=3600, passing=True,
                  startTimestamp="2022-11-01 10:50:30", endTimestamp="2023-02-02 12:20:45",
@@ -31,7 +31,7 @@ class Stays:
         self.timeZone = timeZone
         self.timeFormat = timeFormat
         self.column_names = columns
-        self.params_file = self._create_parameters_file("./parameters.json")
+        self.params_file = self._create_parameters_file("./stay_detection_parameters.json")
 
     def _create_parameters_file(self, filepath):
         with open(filepath, "w") as f:
@@ -86,5 +86,11 @@ class Stays:
         pipeline = self._get_pipeline_instance(spark)
         pipeline.getODMatrix(input_path, output_path, resolution)
         return "od matrix based on default parameters"
+    
+    @spark_session
+    def summarize(spark, self, input_path, output_folder_path):
+        pipeline = self._get_pipeline_instance(spark)
+        pipeline.getDailyVisitedLocations(input_path, output_path)
+        return None
 
 
