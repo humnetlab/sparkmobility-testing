@@ -1,6 +1,7 @@
-from sparkmobility.utils import spark_session, create_spark_session
 import json
 import os
+
+from sparkmobility.utils import spark_session
 
 
 class StayDetection:
@@ -145,10 +146,19 @@ class StayDetection:
         else:
             input_path = self.output_path + "/StayPoints"
 
-        self.stay_duration_distribution = pipeline.getStayDurationDistribution(
+        pipeline.getStayDurationDistribution(
             input_path,
             self.output_path + "/Metrics/StayDurationDistribution",
         )
 
+        # pipeline.getLocationDistribution(
+        #     input_path,
+        #     self.output_path + "/Metrics/LocationDistribution"
+        # )
+
+        pipeline.getDailyVisitedLocation(
+            input_path,
+            self.output_path + "/Metrics/DailyVisitedLocations",
+        )
 
         return None

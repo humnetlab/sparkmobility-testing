@@ -1,5 +1,6 @@
 from .config.load_config import load_config
 
+
 class ConfigDict:
     def __init__(self):
         self._values = load_config()
@@ -19,17 +20,19 @@ class ConfigDict:
     def reset(self):
         self._values = load_config()
 
+
 config = ConfigDict()
 
 import os
-import urllib.request
-import tarfile
 import sys
+import tarfile
+import urllib.request
 
 SPARK_VERSION = "3.5.5"
 SPARK_TGZ_URL = f"https://dlcdn.apache.org/spark/spark-{SPARK_VERSION}/spark-{SPARK_VERSION}-bin-hadoop3-scala2.13.tgz"
 INSTALL_DIR = os.path.expanduser("~/.spark")
 SPARK_DIR = os.path.join(INSTALL_DIR, f"spark-{SPARK_VERSION}-bin-hadoop3-scala2.13")
+
 
 def download_and_extract():
     if not os.path.exists(SPARK_DIR):
@@ -48,6 +51,7 @@ def download_and_extract():
     else:
         print("Spark already installed.")
 
+
 def configure_env():
     os.environ["SPARK_HOME"] = SPARK_DIR
     os.environ["PATH"] = f"{os.path.join(SPARK_DIR, 'bin')}:{os.environ['PATH']}"
@@ -55,7 +59,8 @@ def configure_env():
     os.environ["PYSPARK_DRIVER_PYTHON"] = "python"
 
     print("Environment variables set for current session.")
-    print("To make this persistent, add the following to your shell config (e.g., .bashrc):")
+    print(
+        "To make this persistent, add the following to your shell config (e.g., .bashrc):"
+    )
     print(f'export SPARK_HOME="{SPARK_DIR}"')
     print(f'export PATH="$SPARK_HOME/bin:$PATH"')
-

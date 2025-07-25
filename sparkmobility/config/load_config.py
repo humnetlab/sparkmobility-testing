@@ -1,11 +1,12 @@
-import os
 import configparser
+import os
+
 
 def load_config(config_path=None):
     config = configparser.ConfigParser()
     # Load default config
     if config_path is None:
-        config_path = os.path.join(os.path.dirname(__file__), 'spark_settings.ini')
+        config_path = os.path.join(os.path.dirname(__file__), "spark_settings.ini")
     config.read(config_path)
     cfg = config["DEFAULT"]
 
@@ -25,8 +26,9 @@ def load_config(config_path=None):
         "SPARKMOBILITY_JAR": timegeo_jar,
     }
 
+
 def find_jar():
-    jar_dir = os.path.join(os.path.dirname(__file__), '..', 'lib')
+    jar_dir = os.path.join(os.path.dirname(__file__), "..", "lib")
     for f in os.listdir(jar_dir):
         if f.startswith("sparkmobility") and f.endswith(".jar"):
             return os.path.abspath(os.path.join(jar_dir, f))
