@@ -5,18 +5,15 @@ This script runs the complete timegeo workflow for processing parquet data direc
 
 Key improvements:
 - Direct parquet processing throughout the pipeline
-- No unnecessary text file conversions
+- Text file conversions not needed
 - Consistent user ID handling
 - Faster processing with pandas vectorized operations
 """
 
 import importlib
 import os
-import shutil
 import subprocess
 import sys
-from multiprocessing import Pool
-
 import h3
 import pandas as pd
 
@@ -120,23 +117,16 @@ import module_2_3_1
 
 print(f"Module function: {module_2_3_1.run_DT_simulation}")
 
-from src.Simulation_Preparation import generate_simulation_input
-# Import text-based functions for backward compatibility
-from src.SRFiltered_to_SimInput import (
-    clean_and_format_fa_users, extract_frequent_users,
-    extract_stay_regions_for_frequent_users, remove_redundant_stays)
 from src_parquet.Aggregated_Plots import (analyze_mobility_patterns_parquet,
                                           plot_dept_validation,
                                           plot_hourly_trip_counts,
                                           plot_stay_durations_parquet)
-from src_parquet.Simulation_Mapper import simulate, simulate_all_parallel
+from src_parquet.Simulation_Mapper import simulate_all_parallel
 from src_parquet.Simulation_PostProcessing import (
-    analyze_simulation_results_parquet, compress_and_export_simulation_results,
-    compress_simulation_results, export_simulation_results_to_parquet)
+    compress_and_export_simulation_results)
 from src_parquet.Simulation_Preparation import (
     activeness, generate_simulation_input_parquet,
     generate_simulation_parameters, otherLocations, split_simulation_inputs)
-# Import specific functions from parquet-optimized modules
 from src_parquet.SRFiltered_to_SimInput import (
     clean_and_format_fa_users_parquet, decode_and_write_parameters,
     extract_frequent_users_parquet,
@@ -342,15 +332,62 @@ def main_workflow(input_parquet_path, num_cpus=16):
     print("STEP 2: PARAMETER GENERATION")
     print("=" * 60)
 
-    # Use original parquet file for C++ module
-    print(f"Running C++ parameter generation with original file: {input_parquet_path}")
+    # MODIFIED: First filter to get frequent users, then generate parameters only for those users
+    print("2a: Filtering data to get frequent users first...")
+    
+    # 2a.1: Remove redundant stays using parquet
+    print("2a.1: Removing redundant stays...")
+    remove_redundant_stays_parquet(
+        input_path=aligned_parquet_path,
+        output_path="./results/SRFiltered_to_SimInput/FilteredStayRegions_set.parquet",
+    )
+
+    # 2a.2: Extract frequent users using parquet
+    print("2a.2: Extracting frequent users...")
+    extract_frequent_users_parquet(
+        input_path="./results/SRFiltered_to_SimInput/FilteredStayRegions_set.parquet",
+        output_path="./results/SRFiltered_to_SimInput/FAUsers.parquet",
+        num_stays_threshold=15,
+    )
+
+    # 2a.3: Extract stay regions for frequent users using parquet
+    print("2a.3: Extracting stay regions for frequent users...")
+    extract_stay_regions_for_frequent_users_parquet(
+        fa_users_path="./results/SRFiltered_to_SimInput/FAUsers.parquet",
+        input_path="./results/SRFiltered_to_SimInput/FilteredStayRegions_set.parquet",
+        output_path="./results/SRFiltered_to_SimInput/FAUsers_StayRegions.parquet",
+    )
+
+    # 2a.4: Clean and format user data using parquet
+    print("2a.4: Cleaning and formatting user data...")
+    clean_and_format_fa_users_parquet(
+        input_path="./results/SRFiltered_to_SimInput/FAUsers_StayRegions.parquet",
+        output_path="./results/SRFiltered_to_SimInput/FAUsers_Cleaned_Formatted.parquet",
+    )
+
+    # 2a.5: Get list of frequent user IDs
+    import pandas as pd
+    fa_users_df = pd.read_parquet("./results/SRFiltered_to_SimInput/FAUsers_Cleaned_Formatted.parquet")
+    frequent_user_ids = set(fa_users_df['caid'].unique())
+    print(f"Found {len(frequent_user_ids)} frequent users for parameter generation")
+
+    # 2a.6: Create a filtered version of the original data with only frequent users
+    print("2a.6: Creating filtered dataset for parameter generation...")
+    original_df = pd.read_parquet(input_parquet_path)
+    filtered_df = original_df[original_df['caid'].isin(frequent_user_ids)]
+    filtered_parquet_path = "./results/SRFiltered_to_SimInput/FilteredForParameters.parquet"
+    filtered_df.to_parquet(filtered_parquet_path, index=False)
+    print(f"Created filtered dataset with {len(filtered_df)} records for {len(frequent_user_ids)} users")
+
+    # Use filtered parquet file for C++ module
+    print(f"Running C++ parameter generation with filtered file: {filtered_parquet_path}")
 
     # CRITICAL: Run parameter generation for BOTH non-commuters AND commuters
     # This matches the notebook workflow and enables work locations in simulation
 
-    print("2a: Generating parameters for NON-COMMUTERS...")
+    print("2b: Generating parameters for NON-COMMUTERS...")
     success_noncomm = run_cpp_module_direct(
-        input_path=input_parquet_path,
+        input_path=filtered_parquet_path,  # Use filtered data
         output_dir="./results/Parameters",
         commuter_mode=False,  # Non-commuters first
         min_num_stay=2,
@@ -367,7 +404,7 @@ def main_workflow(input_parquet_path, num_cpus=16):
             import module_2_3_1
 
             result = module_2_3_1.run_DT_simulation(
-                input_path=input_parquet_path,
+                input_path=filtered_parquet_path,  # Use filtered data
                 output_dir="./results/Parameters",
                 commuter_mode=False,
                 min_num_stay=2,
@@ -382,9 +419,9 @@ def main_workflow(input_parquet_path, num_cpus=16):
             print(f"C++ module (non-commuters) failed: {e}")
             return False
 
-    print("2b: Generating parameters for COMMUTERS...")
+    print("2c: Generating parameters for COMMUTERS...")
     success_comm = run_cpp_module_direct(
-        input_path=input_parquet_path,
+        input_path=filtered_parquet_path,  # Use filtered data
         output_dir="./results/Parameters",
         commuter_mode=True,  # Commuters second - THIS WAS MISSING!
         min_num_stay=2,
@@ -401,7 +438,7 @@ def main_workflow(input_parquet_path, num_cpus=16):
             import module_2_3_1
 
             result = module_2_3_1.run_DT_simulation(
-                input_path=input_parquet_path,
+                input_path=filtered_parquet_path,  # Use filtered data
                 output_dir="./results/Parameters",
                 commuter_mode=True,
                 min_num_stay=2,
@@ -489,35 +526,11 @@ def main_workflow(input_parquet_path, num_cpus=16):
     print("STEP 4: DATA PROCESSING PIPELINE (PARQUET)")
     print("=" * 60)
 
-    # 4a: Remove redundant stays using parquet
-    print("4a: Removing redundant stays...")
-    remove_redundant_stays_parquet(
-        input_path=aligned_parquet_path,
-        output_path="./results/SRFiltered_to_SimInput/FilteredStayRegions_set.parquet",
-    )
-
-    # 4b: Extract frequent users using parquet
-    print("4b: Extracting frequent users...")
-    extract_frequent_users_parquet(
-        input_path="./results/SRFiltered_to_SimInput/FilteredStayRegions_set.parquet",
-        output_path="./results/SRFiltered_to_SimInput/FAUsers.parquet",
-        num_stays_threshold=15,
-    )
-
-    # 4c: Extract stay regions for frequent users using parquet
-    print("4c: Extracting stay regions for frequent users...")
-    extract_stay_regions_for_frequent_users_parquet(
-        fa_users_path="./results/SRFiltered_to_SimInput/FAUsers.parquet",
-        input_path="./results/SRFiltered_to_SimInput/FilteredStayRegions_set.parquet",
-        output_path="./results/SRFiltered_to_SimInput/FAUsers_StayRegions.parquet",
-    )
-
-    # 4d: Clean and format user data using parquet
-    print("4d: Cleaning and formatting user data...")
-    clean_and_format_fa_users_parquet(
-        input_path="./results/SRFiltered_to_SimInput/FAUsers_StayRegions.parquet",
-        output_path="./results/SRFiltered_to_SimInput/FAUsers_Cleaned_Formatted.parquet",
-    )
+    # Data processing already completed in Step 2
+    print("4a: Data processing already completed in Step 2...")
+    print("4b: Using pre-processed frequent users data...")
+    print("4c: Using pre-processed stay regions data...")
+    print("4d: Using pre-processed cleaned and formatted data...")
 
     # Step 5: Simulation Preparation
     print("\n" + "=" * 60)
@@ -702,7 +715,8 @@ if __name__ == "__main__":
 
     # You can specify the input parquet file path here
     # Replace this with your actual input parquet file path
-    input_parquet_path = "/data_1/aparimit/imelda_data/outputs_imelda/2019112900/2019112900_1/work_locations.parquet"
+    # input_parquet_path = "/data_1/aparimit/imelda_data/outputs_imelda/2019112900/2019112900_1/work_locations.parquet"
+    input_parquet_path = "/data_1/albert/package_testing/test_results/StayPointsWithHomeWork/"
 
     # Run the complete workflow
     main_workflow(

@@ -1111,9 +1111,17 @@ void process_streaming(
     // Define output file names based on commuter mode
     std::string file_name1, file_name2, file_name3, file_name4, file_name5, file_name6, file_name7;
     
-    std::string activity_file1 = "Comm_pt_daily.txt";
-    std::string activity_file2 = "Comm_pt_weekly.txt";
-    std::string activity_file3 = "Comm_pt_daily_weekly.txt";
+    std::string activity_file1, activity_file2, activity_file3;
+    
+    if (commuter_mode) {
+        activity_file1 = "Comm_pt_daily.txt";
+        activity_file2 = "Comm_pt_weekly.txt";
+        activity_file3 = "Comm_pt_daily_weekly.txt";
+    } else {
+        activity_file1 = "NonComm_pt_daily.txt";
+        activity_file2 = "NonComm_pt_weekly.txt";
+        activity_file3 = "NonComm_pt_daily_weekly.txt";
+    }
 
     if (commuter_mode) {
         file_name1 = output_dir + "/Commuters/DTRealCommuters.txt";

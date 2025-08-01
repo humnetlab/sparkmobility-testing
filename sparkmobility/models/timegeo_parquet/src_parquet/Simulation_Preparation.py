@@ -277,7 +277,7 @@ def gen_gmm_1sample(cen, cov, mc):
         if 0 < s[0, 0] < 1440 and 0 < s[0, 1] < 1440:
             break
 
-    return [int(s[0, 0]) / 10, int(s[0, 1]) / 10]
+    return [int(s[0, 0]), int(s[0, 1])]
 
 
 def get_parameters(file_path):
@@ -384,13 +384,17 @@ def generate_simulation_parameters(
                 for day in range(NUM_DAYS):
                     if day < 5:  # Weekday
                         if random.random() < WORK_PROB_WEEKDAY:
-                            start_slot = int(time_work * 6) + day * 144
-                            end_slot = start_slot + int(dur_work * 6)
+                            # Convert time_work from minutes to hours, then to slots
+                            time_work_hours = time_work / 60.0  # Convert minutes to hours
+                            start_slot = int(time_work_hours * 6) + day * 144  # Convert hours to slots (6 slots per hour)
+                            end_slot = start_slot + int(dur_work * 6)  # dur_work is already in hours
                             work_slots.extend(range(start_slot, end_slot + 1))
                     else:  # Weekend
                         if random.random() < WORK_PROB_WEEKEND:
-                            start_slot = int(time_work * 6) + day * 144
-                            end_slot = start_slot + int(dur_work * 6)
+                            # Convert time_work from minutes to hours, then to slots
+                            time_work_hours = time_work / 60.0  # Convert minutes to hours
+                            start_slot = int(time_work_hours * 6) + day * 144  # Convert hours to slots (6 slots per hour)
+                            end_slot = start_slot + int(dur_work * 6)  # dur_work is already in hours
                             work_slots.extend(range(start_slot, end_slot + 1))
 
                 work_slots_str = ' '.join(map(str, work_slots)) if work_slots else ''
@@ -502,7 +506,33 @@ def split_simulation_inputs(
             if len(parts) >= 8:
                 try:
                     user_id = parts[0]  # Ensure user ID is always a string
-                    user_parameters[user_id] = line
+                    work_flag = int(parts[5]) if len(parts) > 5 else 0
+                    has_work_slots = len(parts) > 8
+                    
+                    # If this user already exists, prefer the entry with work slots
+                    if user_id in user_parameters:
+                        existing_parts = user_parameters[user_id].split(' ')
+                        existing_work_flag = int(existing_parts[5]) if len(existing_parts) > 5 else 0
+                        existing_has_work_slots = len(existing_parts) > 8
+                        
+                        # Keep the entry with work slots, or the one with work_flag=1 if both have same slot status
+                        if has_work_slots and not existing_has_work_slots:
+                            user_parameters[user_id] = line
+                        elif not has_work_slots and existing_has_work_slots:
+                            # Keep existing entry with work slots
+                            pass
+                        elif work_flag == 1 and existing_work_flag == 0:
+                            user_parameters[user_id] = line
+                        elif work_flag == 0 and existing_work_flag == 1:
+                            # Keep existing entry with work_flag=1
+                            pass
+                        else:
+                            # If both have same characteristics, keep the one with more fields (more complete)
+                            if len(parts) > len(existing_parts):
+                                user_parameters[user_id] = line
+                    else:
+                        user_parameters[user_id] = line
+                        
                 except (ValueError, IndexError) as e:
                     print(f"Error parsing parameter line: {line}, error: {e}")
 
@@ -539,7 +569,7 @@ def split_simulation_inputs(
             continue
             
         # Write location file for this chunk
-        location_file = os.path.join(locations_dir, f'locations_{i}.txt')
+        location_file = os.path.join(locations_dir, f'usersLocations_{i}.txt')
         with open(location_file, 'w') as f:
             for user_id in chunk_users:
                 f.write(f"{str(user_id)}\n")  # Always write user ID as string
@@ -570,7 +600,7 @@ def split_simulation_inputs(
                             location_id += 1
         
         # Write parameter file for this chunk
-        parameter_file = os.path.join(parameters_dir, f'parameters_{i}.txt')
+        parameter_file = os.path.join(parameters_dir, f'usersParameters_{i}.txt')
         with open(parameter_file, 'w') as f:
             for user_id in chunk_users:
                 if user_id in user_parameters:
@@ -583,8 +613,8 @@ def split_simulation_inputs(
     
     # Verify no empty files were created
     for i in range(num_cpus):
-        loc_file = os.path.join(locations_dir, f'locations_{i}.txt')
-        param_file = os.path.join(parameters_dir, f'parameters_{i}.txt')
+        loc_file = os.path.join(locations_dir, f'usersLocations_{i}.txt')
+        param_file = os.path.join(parameters_dir, f'usersParameters_{i}.txt')
         
         if os.path.exists(loc_file) and os.path.exists(param_file):
             loc_size = os.path.getsize(loc_file)
@@ -618,6 +648,7 @@ def activeness(
         """Read activeness file, return default pattern if file is empty or missing."""
         activeness_data = []
         
+        # First try the specified path
         try:
             if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
                 with open(file_path, 'r') as f:
@@ -630,12 +661,46 @@ def activeness(
                 
                 # Check for meaningful patterns: more than 1 non-zero value and reasonable distribution
                 if non_zero_count > 1 and total_activity > 0.1:
+                    print(f"Using activeness file: {file_path}")
                     return activeness_data
                 else:
-                    print(f"Warning: Activity file {file_path} has poor pattern (non-zero: {non_zero_count}, total: {total_activity:.3f}). Using default.")
+                    print(f"Warning: Activity file {file_path} has poor pattern (non-zero: {non_zero_count}, total: {total_activity:.3f}).")
                     
         except Exception as e:
             print(f"Warning: Error reading activeness file {file_path}: {e}")
+        
+        # If the specified path failed, try fallback to root directory
+        fallback_path = None
+        if 'NonComm_pt_daily' in file_path:
+            fallback_path = './Comm_pt_daily.txt'  # Use commuter file as fallback
+        elif 'NonComm_pt_weekly' in file_path:
+            fallback_path = './Comm_pt_weekly.txt'  # Use commuter file as fallback
+        elif 'Comm_pt_daily' in file_path:
+            fallback_path = './Comm_pt_daily.txt'
+        elif 'Comm_pt_weekly' in file_path:
+            fallback_path = './Comm_pt_weekly.txt'
+        
+        if fallback_path and os.path.exists(fallback_path):
+            print(f"Trying fallback activeness file: {fallback_path}")
+            try:
+                with open(fallback_path, 'r') as f:
+                    for line in f:
+                        activeness_data.append(float(line.strip()))
+                        
+                non_zero_count = sum(1 for x in activeness_data if x > 0)
+                total_activity = sum(activeness_data)
+                
+                if non_zero_count > 1 and total_activity > 0.1:
+                    print(f"Using fallback activeness file: {fallback_path}")
+                    return activeness_data
+                else:
+                    print(f"Warning: Fallback activity file {fallback_path} also has poor pattern.")
+                    
+            except Exception as e:
+                print(f"Warning: Error reading fallback activeness file {fallback_path}: {e}")
+        
+        # If all files failed, generate default patterns
+        print(f"Generating default activeness pattern for: {file_path}")
             
         # Generate default patterns if file is empty/missing/all zeros
         if 'daily' in file_path:
@@ -647,13 +712,13 @@ def activeness(
                 if 6 <= hour <= 22:  # Active hours 6 AM to 10 PM
                     # Peak activity during commute times and lunch
                     if hour in [7, 8, 12, 17, 18]:
-                        activity = 0.15  # Higher activity during peak times
+                        activity = 0.25  # Higher activity during peak times
                     elif hour in [9, 10, 11, 13, 14, 15, 16, 19, 20]:
-                        activity = 0.08  # Medium activity during work/day hours
+                        activity = 0.15  # Medium activity during work/day hours
                     else:
-                        activity = 0.04  # Lower activity during other day hours
+                        activity = 0.08  # Lower activity during other day hours
                 else:  # Night hours (11 PM to 5 AM)
-                    activity = 0.01  # Very low activity at night
+                    activity = 0.02  # Very low activity at night
                 daily_pattern.append(activity)
             
             # Normalize to sum to approximately 1.0

@@ -375,17 +375,32 @@ def plot_stay_durations_parquet(
         df_sorted = df.sort_values([user_col, time_col])
         for user_id in df_sorted[user_col].unique():
             user_data = df_sorted[df_sorted[user_col] == user_id]
-            times = user_data[time_col].values
-            if len(times) < 2:
+            if len(user_data) < 2:
                 continue
-            # Compute differences
-            diffs = np.diff(times)
-            # If times are in seconds, convert to hours
-            if np.median(diffs) > 100:  # likely seconds
-                diffs = diffs / 3600.0
-            else:  # likely slots (10 min)
-                diffs = diffs * (10/60)
-            durations.extend(diffs[diffs > 0])
+            
+            # Track location changes (similar to original load_simulation_cdf)
+            running_location = None
+            trip_start_slot = None
+            
+            for _, row in user_data.iterrows():
+                current_location = (row['longitude'], row['latitude'])
+                current_slot = row[time_col]
+                
+                if running_location is None:
+                    # First location
+                    running_location = current_location
+                    trip_start_slot = current_slot
+                elif current_location != running_location:
+                    # Location change: record stay duration
+                    trip_end_slot = current_slot
+                    duration = float(trip_end_slot - trip_start_slot) * (10/60)  # Convert slots to hours
+                    if duration > 0:
+                        durations.append(duration)
+                    
+                    # Start new stay
+                    running_location = current_location
+                    trip_start_slot = current_slot
+            
         return np.array(durations)
 
     # Read simulation durations
@@ -398,7 +413,24 @@ def plot_stay_durations_parquet(
     cdr_df = read_parquet_robust(cdr_parquet)
     cdr_user_col = 'caid'
     cdr_time_col = 'timestamp'
-    cdr_durations = get_durations_in_hours(cdr_df, cdr_user_col, cdr_time_col)
+    
+    # For CDR data, calculate durations between consecutive events (original logic)
+    cdr_durations = []
+    cdr_sorted = cdr_df.sort_values([cdr_user_col, cdr_time_col])
+    
+    for user_id in cdr_sorted[cdr_user_col].unique():
+        user_data = cdr_sorted[cdr_sorted[cdr_user_col] == user_id]
+        if len(user_data) < 2:
+            continue
+            
+        # Calculate durations between consecutive events
+        times = user_data[cdr_time_col].values
+        diffs = np.diff(times)
+        # Convert from seconds to hours
+        diffs_hours = diffs / 3600.0
+        cdr_durations.extend(diffs_hours[diffs_hours > 0])
+    
+    cdr_durations = np.array(cdr_durations)
 
     # Bin edges for histogram (in hours)
     bins = np.arange(xlim[0], xlim[1] + bin_width, bin_width)

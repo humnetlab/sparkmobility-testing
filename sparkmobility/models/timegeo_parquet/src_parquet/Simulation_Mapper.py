@@ -19,8 +19,9 @@ def _simulate_wrapper(file_index):
     """
     Module-level wrapper function for multiprocessing. Can be pickled.
     """
+    print(f"[DEBUG] _simulate_wrapper started for file_index={file_index}, pid={os.getpid()}")
     params = _simulation_params
-    return simulate(
+    result = simulate(
         file_index=file_index,
         other_locations_file=params.get('other_locations_file'),
         activeness_file=params.get('activeness_file'),
@@ -31,6 +32,8 @@ def _simulate_wrapper(file_index):
         output_dir=params.get('output_dir'),
         **params.get('kwargs', {})
     )
+    print(f"[DEBUG] _simulate_wrapper finished for file_index={file_index}, pid={os.getpid()}")
+    return result
 
 def simulate(
     file_index,
@@ -50,6 +53,7 @@ def simulate(
     min_dist=0.6,
     exponent=-0.86
 ):
+    print(f"[DEBUG] simulate started for file_index={file_index}, pid={os.getpid()}")
     # map external parameters to original variable names
     OTHER_LOCATIONS = other_locations_file
     ACTIVENESS_LOCATION = activeness_file
@@ -138,7 +142,20 @@ def simulate(
                     visit_cdf[j]=visit_cdf[j-1]+locs[j][1]/visit_count_sum
                 else:
                     visit_cdf[j]=visit_cdf[j-1]
+            loop_count = 0
             while True:
+                loop_count += 1
+                if loop_count > 10000:
+                    print(f"[WARN] Possible infinite loop in findNextLoc (visited locations) for user {userId}")
+                    # Fall back to returning a random valid location
+                    valid_locs = [j for j in range(numLocs) if j != curr_loc]
+                    if valid_locs:
+                        chosen_loc = random.choice(valid_locs)
+                        locs[chosen_loc][1] += 1
+                        return chosen_loc
+                    else:
+                        print(f"[ERROR] No valid locations found for user {userId}")
+                        return 0  # Return home as fallback
                 rand_num=random.random()
                 for j in range(numLocs):
                     if rand_num<visit_cdf[j] and j!=curr_loc:
@@ -153,7 +170,20 @@ def simulate(
                 if dists[i][0]>MIN_DIST:
                     begin_index=i
                     break
+            loop_count = 0
             while True:
+                loop_count += 1
+                if loop_count > 10000:
+                    print(f"[WARN] Possible infinite loop in findNextLoc (new locations) for user {userId}")
+                    # Fall back to using a random location beyond MIN_DIST
+                    valid_indices = list(range(begin_index, n))
+                    if valid_indices:
+                        chosen_idx = random.choice(valid_indices)
+                        locs.append([locs[-1][0]+1,1,LOC_POOL[dists[chosen_idx][1]][0],LOC_POOL[dists[chosen_idx][1]][1]])
+                        return locs[-1][0]
+                    else:
+                        print(f"[ERROR] No valid new locations found beyond MIN_DIST for user {userId}")
+                        return 0  # Return home as fallback
                 rand_num=random.random()
                 for i in range(begin_index,n):
                     if rand_num<RANK_SELECT_CDF[i-begin_index]:
@@ -163,12 +193,17 @@ def simulate(
     # Deterine whether a particular slot numbe is inside a list of slots
     # The list of slots consists of slot pairs- (start slot, end slot)
     def inSlots(slot, listOfSlots):
-        return any(slot>=s[0] and slot<=s[1] for s in listOfSlots)
+        for rng in listOfSlots:
+            if rng[0]<=slot and slot<=rng[1]:
+                return True
+        return False
 
     #the input information locs is: locid, num times visited, lon, lat 
     #parameters needed: b1, b2, start slot, end slot
     #home is locid 0, 'other' location ids start at 1
-    def processUser(locs,b1,b2,nw, workingSlots,workLocation):
+    def processUser(locs,b1,b2,nw, workingSlots,workLocation, userId=None):
+        if userId:
+            print(f"[DEBUG] processUser started for file_index={file_index}, user={userId}")
         slot_num=END_SLOT-START_SLOT+1
         # Initialize location array for each slot
         person_loc=[0]*slot_num
@@ -198,14 +233,20 @@ def simulate(
             # If user is at 'other' location, he/she can stay there, go home
             # or go to another 'other' location
             if inSlots(curr_slot, workingSlots):
+                if userId:
+                    print(f"[DEBUG] User {userId} is in work slot {curr_slot}, work slots: {workingSlots}")
                 at_work = 1
                 at_home = 0
                 curr_loc = 'work'
                 person_loc[i] = 'work'
             elif at_work == 1:
+                if userId:
+                    print(f"[DEBUG] User {userId} leaving work at slot {curr_slot}")
                 at_work = 0
                 curr_loc = 'work'
                 workingSlotsProcessed += 1
+            
+            # Move daily_slot calculation here, after work slot processing
             daily_slot=curr_slot%144
             weekly_slot=(curr_slot/144)%7
             
@@ -255,6 +296,8 @@ def simulate(
                 else:
                     #else keep at the current other place
                     person_loc[i]=curr_loc
+        if userId:
+            print(f"[DEBUG] processUser finished for file_index={file_index}, user={userId}")
         return locs, person_loc
 
     ################################################
@@ -280,7 +323,7 @@ def simulate(
     with open(out_file, 'w') as g:
         userLocations = {}
         userWorkLocations = {}
-        loc_file = os.path.join(users_locations_dir, f'locations_{file_index}.txt')
+        loc_file = os.path.join(users_locations_dir, f'usersLocations_{file_index}.txt')
         with open(loc_file, 'r') as f:
             for line in f:
                 line = line.strip().split(' ')
@@ -303,7 +346,7 @@ def simulate(
                         userLocations[currentUser].append(line)
         
         
-        param_file = os.path.join(users_parameters_dir, f'parameters_{file_index}.txt')
+        param_file = os.path.join(users_parameters_dir, f'usersParameters_{file_index}.txt')
         with open(param_file, 'r') as f:
             for line in f:
                 line = line.strip().split(' ')
@@ -313,10 +356,31 @@ def simulate(
                 # MODIFICATION
                 g.write(userId+'\n')
                 if workingStatus:
-                    workingDays = [int(x) for x in line[9::3]]
-                    beginSlots = [int(x) for x in line[10::3]]
-                    durations = [int(x) for x in line[11::3]]
-                    workingSlots = [[b, b+dur] for d,b,dur in zip(workingDays, beginSlots, durations) if d]
+                    # Parse work slots - they are individual slot numbers starting from field 9
+                    work_slots_raw = line[8:] if len(line) > 8 else []
+                    workingSlots = []
+                    
+                    # Convert individual slot numbers to time ranges
+                    if work_slots_raw:
+                        slots = [int(x) for x in work_slots_raw if x.strip()]
+                        if slots:
+                            # Group consecutive slots into ranges
+                            ranges = []
+                            start = slots[0]
+                            end = slots[0]
+                            
+                            for slot in slots[1:]:
+                                if slot == end + 1:
+                                    end = slot
+                                else:
+                                    ranges.append([start, end])
+                                    start = slot
+                                    end = slot
+                            
+                            ranges.append([start, end])
+                            workingSlots = ranges
+                            print(f"[DEBUG] User {userId} has {len(workingSlots)} work slot ranges: {workingSlots}")
+                    
                     workLocation = userWorkLocations.get(userId, [])
                 else:
                     workingSlots = []
@@ -362,10 +426,10 @@ def simulate(
                     else:
                         modifiedWorkingSlots.append(rng)
                 try:
-                    locs, person_loc = processUser(locsVisited, b1, b2, nw, modifiedWorkingSlots, workLocation)
-                except Exception:
-                    print('error, userId:',userId)
-                    #continue
+                    locs, person_loc = processUser(locsVisited, b1, b2, nw, modifiedWorkingSlots, workLocation, userId)
+                except Exception as e:
+                    print(f'error, userId: {userId}, exception: {e}')
+                    continue
                 
 
                 try:
@@ -375,7 +439,17 @@ def simulate(
                     for dl in differentLocs:
                         if dl == 'work':
                             locType = 'w'
-                            location = workLocation 
+                            if len(workLocation) >= 2:
+                                location = workLocation
+                            else:
+                                # Fallback: use home location if work location is not available
+                                print(f"[WARN] No work location found for user {userId}, using home location as fallback")
+                                matches = [x for x in locs if x[0] == 0]  # Home location
+                                if matches:
+                                    location = matches[0][2:4]
+                                else:
+                                    numErrors += 1
+                                    continue
                         elif dl == 0:
                             locType = 'h'
                         else:
@@ -404,6 +478,7 @@ def simulate(
         print(f"Users processed: {usersProcessed}, error: {numErrors}")
 
     print(f"Process {file_index}: Output written to: {out_file}")
+    print(f"[DEBUG] simulate finished for file_index={file_index}, pid={os.getpid()}")
 
 
 def simulate_all_parallel_optimized(
@@ -421,7 +496,7 @@ def simulate_all_parallel_optimized(
     Run simulation for all file indices in parallel using optimized multiprocessing.
     Uses concurrent futures for better resource management and progress tracking.
     """
-    print(f"Starting optimized parallel simulation with {num_cpus} processes...")
+    print(f"[DEBUG] Starting simulate_all_parallel_optimized with {num_cpus} CPUs")
     
     # Set global parameters for the wrapper function
     global _simulation_params
@@ -439,13 +514,14 @@ def simulate_all_parallel_optimized(
     # Check which files actually exist to avoid processing empty files
     active_indices = []
     for i in range(num_cpus):
-        locations_file = os.path.join(users_locations_dir, f'locations_{i}.txt')
-        parameters_file = os.path.join(users_parameters_dir, f'parameters_{i}.txt')
+        locations_file = os.path.join(users_locations_dir, f'usersLocations_{i}.txt')
+        parameters_file = os.path.join(users_parameters_dir, f'usersParameters_{i}.txt')
         
         if (os.path.exists(locations_file) and os.path.getsize(locations_file) > 0 and
             os.path.exists(parameters_file) and os.path.getsize(parameters_file) > 0):
             active_indices.append(i)
     
+    print(f"[DEBUG] Active indices: {active_indices}")
     print(f"Found {len(active_indices)} active file pairs out of {num_cpus} total")
     
     if not active_indices:
@@ -467,15 +543,18 @@ def simulate_all_parallel_optimized(
         for future in concurrent.futures.as_completed(future_to_index):
             index = future_to_index[future]
             try:
-                result = future.result()
+                print(f"[DEBUG] Waiting for result from file index {index}")
+                result = future.result(timeout=600)  # 10 minute timeout per file
                 completed += 1
                 elapsed = time.time() - start_time
                 progress = (completed / len(active_indices)) * 100
                 eta = (elapsed / completed) * (len(active_indices) - completed) if completed > 0 else 0
                 print(f"Completed {completed}/{len(active_indices)} ({progress:.1f}%) - "
                       f"File {index} - Elapsed: {elapsed:.1f}s - ETA: {eta:.1f}s")
+            except concurrent.futures.TimeoutError:
+                print(f"[ERROR] Timeout for file index {index}")
             except Exception as exc:
-                print(f"Simulation for file {index} generated an exception: {exc}")
+                print(f"[ERROR] Simulation for file {index} generated an exception: {exc}")
     
     total_time = time.time() - start_time
     print(f"Completed optimized simulation for all {len(active_indices)} active processes in {total_time:.1f}s")
@@ -536,8 +615,8 @@ def simulate_all_parallel_batched(
     # Check which files actually exist
     active_indices = []
     for i in range(num_cpus):
-        locations_file = os.path.join(users_locations_dir, f'locations_{i}.txt')
-        parameters_file = os.path.join(users_parameters_dir, f'parameters_{i}.txt')
+        locations_file = os.path.join(users_locations_dir, f'usersLocations_{i}.txt')
+        parameters_file = os.path.join(users_parameters_dir, f'usersParameters_{i}.txt')
         
         if (os.path.exists(locations_file) and os.path.getsize(locations_file) > 0 and
             os.path.exists(parameters_file) and os.path.getsize(parameters_file) > 0):
