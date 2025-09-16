@@ -28,7 +28,7 @@ def load_config(config_path=None):
         "MEMORY": memory,
         "LOG_LEVEL": log_level,
         "SPARKMOBILITY_JAR": timegeo_jar,
-        "TEMP_DIR":  TEMP_DIR,
+        "TEMP_DIR": TEMP_DIR,
     }
 
 
