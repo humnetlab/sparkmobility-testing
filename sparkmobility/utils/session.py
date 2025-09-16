@@ -16,8 +16,12 @@ def create_spark_session():
         .config("spark.sql.files.ignoreCorruptFiles", "true")
         .config("spark.sql.session.timeZone", "UTC")
         .config("spark.local.dir", f"{config['TEMP_DIR']}")
-        .config("spark.driver.extraJavaOptions", f"-Djava.io.tmpdir={config['TEMP_DIR']}")
-        .config("spark.executor.extraJavaOptions", f"-Djava.io.tmpdir={config['TEMP_DIR']}")
+        .config(
+            "spark.driver.extraJavaOptions", f"-Djava.io.tmpdir={config['TEMP_DIR']}"
+        )
+        .config(
+            "spark.executor.extraJavaOptions", f"-Djava.io.tmpdir={config['TEMP_DIR']}"
+        )
         .config("spark.sql.session.timeZone", "UTC")
         .config("spark.sql.shuffle.partitions", "96")
         .config("spark.default.parallelism", "96")

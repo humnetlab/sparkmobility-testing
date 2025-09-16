@@ -47,6 +47,7 @@ def configure_parquet_engine():
 # Set the parquet engine globally
 PARQUET_ENGINE = configure_parquet_engine()
 
+
 # Wrapper function for robust parquet reading
 def read_parquet_robust(file_path):
     """Read parquet file with fallback engine support."""
@@ -121,27 +122,43 @@ import module_2_3_1
 print(f"Module function: {module_2_3_1.run_DT_simulation}")
 
 from src.Simulation_Preparation import generate_simulation_input
+
 # Import text-based functions for backward compatibility
 from src.SRFiltered_to_SimInput import (
-    clean_and_format_fa_users, extract_frequent_users,
-    extract_stay_regions_for_frequent_users, remove_redundant_stays)
-from src_parquet.Aggregated_Plots import (analyze_mobility_patterns_parquet,
-                                          plot_dept_validation,
-                                          plot_hourly_trip_counts,
-                                          plot_stay_durations_parquet)
+    clean_and_format_fa_users,
+    extract_frequent_users,
+    extract_stay_regions_for_frequent_users,
+    remove_redundant_stays,
+)
+from src_parquet.Aggregated_Plots import (
+    analyze_mobility_patterns_parquet,
+    plot_dept_validation,
+    plot_hourly_trip_counts,
+    plot_stay_durations_parquet,
+)
 from src_parquet.Simulation_Mapper import simulate, simulate_all_parallel
 from src_parquet.Simulation_PostProcessing import (
-    analyze_simulation_results_parquet, compress_and_export_simulation_results,
-    compress_simulation_results, export_simulation_results_to_parquet)
+    analyze_simulation_results_parquet,
+    compress_and_export_simulation_results,
+    compress_simulation_results,
+    export_simulation_results_to_parquet,
+)
 from src_parquet.Simulation_Preparation import (
-    activeness, generate_simulation_input_parquet,
-    generate_simulation_parameters, otherLocations, split_simulation_inputs)
+    activeness,
+    generate_simulation_input_parquet,
+    generate_simulation_parameters,
+    otherLocations,
+    split_simulation_inputs,
+)
+
 # Import specific functions from parquet-optimized modules
 from src_parquet.SRFiltered_to_SimInput import (
-    clean_and_format_fa_users_parquet, decode_and_write_parameters,
+    clean_and_format_fa_users_parquet,
+    decode_and_write_parameters,
     extract_frequent_users_parquet,
     extract_stay_regions_for_frequent_users_parquet,
-    remove_redundant_stays_parquet)
+    remove_redundant_stays_parquet,
+)
 
 
 def data_alignment(df_path):

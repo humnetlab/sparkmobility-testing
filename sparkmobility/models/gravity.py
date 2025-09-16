@@ -1,7 +1,7 @@
 import copy
 import math
 
-#from ..utils.county_tesslation import tesselate_county
+# from ..utils.county_tesslation import tesselate_county
 from sparkmobility.utils.county_tesslation import tesselate_county
 import folium
 import geopandas as gpd
@@ -79,13 +79,13 @@ class Gravity:
         n = len(spatial_tessellation)
         distance_matrix = np.zeros((n, n))
 
-        for id_i in tqdm(range(n)): # origins
+        for id_i in tqdm(range(n)):  # origins
             lat_i, lng_i = centroids[id_i]
             for id_j in range(id_i + 1, n):
                 lat_j, lng_j = centroids[id_j]
                 distance = geodesic(
                     (lat_i, lng_i), (lat_j, lng_j)
-                ).kilometers # .kilometers
+                ).kilometers  # .kilometers
                 distance_matrix[id_i, id_j] = distance
                 distance_matrix[id_j, id_i] = distance
 
@@ -368,7 +368,9 @@ class Gravity:
         )
 
         self.X, self.y = [], []
-        flow_df.progress_apply(lambda flow_example: self._update_training_set(flow_example), axis=1)
+        flow_df.progress_apply(
+            lambda flow_example: self._update_training_set(flow_example), axis=1
+        )
 
         print("Fitting GLM Model...")
         model = GLM(
@@ -392,18 +394,29 @@ class Gravity:
         del self.X
         del self.y
 
+        self.deterrence_func_args = self.get_str("deterrence_func_args")[0]
+        self.origin_exp = self.get_str("origin_exp")[0]
+        self.destination_exp = self.get_str("destination_exp")[0]
+
         return result
 
     # -------------- Data prep utilities (static methods) --------------
 
     @staticmethod
     def get_outflow_hex_df(
-        outflow_df_path, name_outflow_origin, name_outflow_outflow, hex_resolution, pop_df
+        outflow_df_path,
+        name_outflow_origin,
+        name_outflow_outflow,
+        hex_resolution,
+        pop_df,
     ):
         """Read outflow csv and aggregate to the target H3 resolution; align with population df."""
         flow_hex_df = pd.read_csv(outflow_df_path)
         flow_hex_df = flow_hex_df.rename(
-            columns={name_outflow_origin: "origin", name_outflow_outflow: "total_outflow"}
+            columns={
+                name_outflow_origin: "origin",
+                name_outflow_outflow: "total_outflow",
+            }
         )
 
         unique_h3_indices = flow_hex_df["origin"].unique()
@@ -420,7 +433,9 @@ class Gravity:
         )
 
         valid_indices = set(pop_df["index"])
-        filtered_outflow_df = outflow_hex_df[outflow_hex_df["origin"].isin(valid_indices)]
+        filtered_outflow_df = outflow_hex_df[
+            outflow_hex_df["origin"].isin(valid_indices)
+        ]
         outflow_hex_df_with_pop = pd.merge(
             filtered_outflow_df, pop_df, left_on="origin", right_on="index", how="left"
         )
@@ -460,9 +475,9 @@ class Gravity:
         flow_hex_df["origin"] = flow_hex_df["origin"].map(resolution_mapping)
         flow_hex_df["destination"] = flow_hex_df["destination"].map(resolution_mapping)
 
-        flow_hex_df = flow_hex_df.groupby(["origin", "destination"], as_index=False).agg(
-            flow=("caid", "count"), distance=("distance", "first")
-        )
+        flow_hex_df = flow_hex_df.groupby(
+            ["origin", "destination"], as_index=False
+        ).agg(flow=("caid", "count"), distance=("distance", "first"))
 
         flow_hex_df = flow_hex_df[flow_hex_df["origin"] != flow_hex_df["destination"]]
 
@@ -527,5 +542,7 @@ class Gravity:
         relevance_df["geometry"] = relevance_df["index"].apply(
             lambda ix: Polygon([(lon, lat) for (lat, lon) in h3.cell_to_boundary(ix)])
         )
-        relevance_gdf = gpd.GeoDataFrame(relevance_df, geometry="geometry", crs="EPSG:4326")
+        relevance_gdf = gpd.GeoDataFrame(
+            relevance_df, geometry="geometry", crs="EPSG:4326"
+        )
         return relevance_gdf
