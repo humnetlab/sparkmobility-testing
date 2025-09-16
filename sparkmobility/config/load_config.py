@@ -1,5 +1,6 @@
 import configparser
 import os
+from pathlib import Path
 
 
 def load_config(config_path=None):
@@ -19,11 +20,15 @@ def load_config(config_path=None):
     if timegeo_jar.strip().lower() == "auto":
         timegeo_jar = find_jar()
 
+    TEMP_DIR = Path.cwd() / "tmp"
+    TEMP_DIR.mkdir(parents=True, exist_ok=True)
+
     return {
         "CORES": cores,
         "MEMORY": memory,
         "LOG_LEVEL": log_level,
         "SPARKMOBILITY_JAR": timegeo_jar,
+        "TEMP_DIR":  TEMP_DIR,
     }
 
 
