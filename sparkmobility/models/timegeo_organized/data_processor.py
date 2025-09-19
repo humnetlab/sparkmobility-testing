@@ -67,9 +67,10 @@ class DataProcessor:
         df["h3_id_region_16"] = (
             df["h3_id_region"].astype(int).apply(lambda x: format(x, "x"))
         )
-        lat_lng = list(map(h3.h3_to_geo, df["h3_id_region_16"]))
-        df["Latitude"], df["Longitude"] = zip(*lat_lng)
-        
+        lat_lng = list(map(h3.cell_to_boundary, df["h3_id_region_16"]))
+        df["Latitude"] = [coord[0][0] for coord in lat_lng]
+        df["Longitude"] = [coord[0][1] for coord in lat_lng]
+
         # Convert timestamp to UNIX seconds
         df["timestamp"] = pd.to_datetime(df["stay_start_timestamp"]).astype(int) // 10**9
         

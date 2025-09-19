@@ -184,7 +184,8 @@ def _generate_simulation_input_original(df, output_path):
                 h3_hex = format(int(h3_id), 'x')
             else:
                 h3_hex = str(h3_id)
-            return h3.h3_to_geo(h3_hex)
+
+            return h3.cell_to_boundary(h3_hex)
         except Exception as e:
             print(f"Warning: Failed to convert H3 ID {h3_id} to coordinates: {e}")
             return (0.0, 0.0)  # Default if conversion fails

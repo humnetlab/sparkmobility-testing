@@ -21,8 +21,8 @@ def main():
     """Example usage of the TimeGeo workflow."""
     
     # Example input path - replace with your actual data path
-    input_parquet_path = "/data_1/albert/package_testing/test_results/StayPointsWithHomeWork/"
-    
+    input_parquet_path = "/data_1/albert/package_testing/filtered_la_first_100k.parquet"
+
     # Create configuration with custom parameters
     config = TimeGeoConfig(
         input_parquet_path=input_parquet_path,
