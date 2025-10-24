@@ -160,5 +160,9 @@ class StayDetection:
             input_path,
             self.output_path + "/Metrics/DailyVisitedLocations",
         )
+        pipeline.getDepartureTimeDistribution(
+            input_path,
+            self.output_path + "/Metrics/DepartureTimeDistribution",
+        )
 
         return None
