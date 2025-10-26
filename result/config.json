@@ -1,0 +1,19 @@
+{
+    "startTimestamp": "2020-01-01 00:00:00",
+    "endTimestamp": "2025-12-31 23:59:59",
+    "longitude": null,
+    "latitude": null,
+    "timeZone": "America/Mexico_City",
+    "deltaT": 300,
+    "spatialThreshold": 300,
+    "speedThreshold": 6.0,
+    "temporalThreshold": 300,
+    "hexResolution": 8,
+    "regionalTemporalThreshold": 3600,
+    "passing": true,
+    "homeToWork": 8,
+    "workToHome": 19,
+    "workDistanceLimit": 500,
+    "workFreqCountLimit": 3,
+    "findHomeAndWork": true
+}

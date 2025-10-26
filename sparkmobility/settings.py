@@ -28,7 +28,7 @@ import sys
 import tarfile
 import urllib.request
 
-SPARK_VERSION = "3.5.5"
+SPARK_VERSION = "3.5.7"
 SPARK_TGZ_URL = f"https://dlcdn.apache.org/spark/spark-{SPARK_VERSION}/spark-{SPARK_VERSION}-bin-hadoop3-scala2.13.tgz"
 INSTALL_DIR = os.path.expanduser("~/.spark")
 SPARK_DIR = os.path.join(INSTALL_DIR, f"spark-{SPARK_VERSION}-bin-hadoop3-scala2.13")
