@@ -578,3 +578,31 @@ class EPR:
         
         flow_df = pd.DataFrame(flow_data)
         return flow_df
+    
+    @staticmethod
+    def obtain_relevance_data_at_resolution(
+        relevance_df, colname_h3_index, colname_caid, hex_resolution
+    ):
+        """Map raw relevance (stays) to target H3 resolution and build GeoDataFrame."""
+        relevance_df = relevance_df.rename(columns={colname_h3_index: "index"})
+
+        unique_h3_indices = relevance_df["index"].unique()
+        resolution_mapping = {
+            h3_index: h3.cell_to_parent(h3_index, hex_resolution)
+            if h3.get_resolution(h3_index) != hex_resolution
+            else h3_index
+            for h3_index in unique_h3_indices
+        }
+        relevance_df["index"] = relevance_df["index"].map(resolution_mapping)
+
+        relevance_df = relevance_df.groupby("index", as_index=False).agg(
+            stay_count=(colname_caid, "count")
+        )
+
+        relevance_df["geometry"] = relevance_df["index"].apply(
+            lambda ix: Polygon([(lon, lat) for (lat, lon) in h3.cell_to_boundary(ix)])
+        )
+        relevance_gdf = gpd.GeoDataFrame(
+            relevance_df, geometry="geometry", crs="EPSG:4326"
+        )
+        return relevance_gdf
