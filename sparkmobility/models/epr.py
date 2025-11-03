@@ -140,7 +140,7 @@ class EPR:
             flow_df, user_column, datetime_column, location_column
         )
 
-        print(f"✅ OD matrix computed with shape: {self.od_matrix.shape}")
+        print(f"OD Matrix computed with shape: {self.od_matrix.shape}")
         print(f"  Number of locations: {len(self.tileid2index)}")
         print(f"  Total transitions: {num_transitions}")
 
