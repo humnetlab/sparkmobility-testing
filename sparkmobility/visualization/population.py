@@ -29,7 +29,9 @@ cmap = LinearSegmentedColormap.from_list("custom_cmap", custom_colors)
 matplotlib.rcParams.update({"legend.fontsize": 14, "legend.handlelength": 2})
 
 
-def plot_mobility_distributions(output_path):
+def plot_mobility_distributions(myDataset):
+    output_path = myDataset.output_path
+
     pdelta_t = (
         create_spark_session()
         .read.parquet(f"{output_path}/Metrics/StayDurationDistribution")

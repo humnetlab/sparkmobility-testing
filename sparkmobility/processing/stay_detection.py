@@ -7,44 +7,34 @@ from sparkmobility.utils import spark_session
 class StayDetection:
     def __init__(
         self,
-        columns,
-        input_path,
-        output_path,
-        startTimestamp="2020-01-01 00:00:00",
-        endTimestamp="2025-12-31 23:59:59",
-        longitude=None,
-        latitude=None,
-        timeZone="America/Mexico_City",
-        timeFormat="UNIX",
+        MobilityDataset,
     ):
-        self.input_path = input_path
-        self.output_path = output_path
-        self.column_names = columns
-        self.timeFormat = timeFormat
+        self.dataset = MobilityDataset
 
-        os.makedirs(output_path, exist_ok=True)
+        os.makedirs(self.dataset.output_path, exist_ok=True)
 
-        if os.path.exists(output_path + "/config.json"):
-            with open(output_path + "/config.json", "r") as f:
+        if os.path.exists(self.dataset.output_path + "/config.json"):
+            with open(self.dataset.output_path + "/config.json", "r") as f:
                 params = json.load(f)
         else:
-            with open(output_path + "/config.json", "w") as f:
+            with open(self.dataset.output_path + "/config.json", "w") as f:
                 params = {
-                    "startTimestamp": startTimestamp,
-                    "endTimestamp": endTimestamp,
-                    "longitude": longitude,
-                    "latitude": latitude,
-                    "timeZone": timeZone,
+                    "dataset_name": self.dataset.dataset_name,
+                    "startTimestamp": self.dataset.start_datetime,
+                    "endTimestamp": self.dataset.end_datetime,
+                    "longitude": self.dataset.longitude,
+                    "latitude": self.dataset.latitude,
+                    "timeZone": self.dataset.time_zone,
                 }
                 json.dump(params, f, indent=4)
 
-        self.param_file_path = os.path.abspath(output_path + "/config.json")
+        self.param_file_path = os.path.abspath(self.dataset.output_path + "/config.json")
 
     def _create_hashmap(self, spark):
         # hashmap = spark._jvm.java.util.HashMap()
         # for key, value in self.column_names.items():
         #     hashmap.put(key, value)
-        hashmap = spark._jvm.PythonUtils.toScalaMap(self.column_names)
+        hashmap = spark._jvm.PythonUtils.toScalaMap(self.dataset.column_names)
         return hashmap
 
     def _get_pipeline_instance(self, spark):
@@ -68,7 +58,7 @@ class StayDetection:
         workFreqCountLimit=3,
         findHomeAndWork=True,
     ):
-        with open(self.output_path + "/config.json", "r") as f:
+        with open(self.dataset.output_path + "/config.json", "r") as f:
             params = json.load(f)
 
         params.update(
@@ -88,16 +78,16 @@ class StayDetection:
             }
         )
 
-        with open(self.output_path + "/config.json", "w") as f:
+        with open(self.dataset.output_path + "/config.json", "w") as f:
             json.dump(params, f, indent=4)
 
         pipeline = self._get_pipeline_instance(spark)
         columnNames = self._create_hashmap(spark)
 
         pipeline.getStays(
-            self.input_path,
-            self.output_path + "/StayPoints",
-            self.timeFormat,
+            self.dataset.input_path,
+            self.dataset.output_path + "/StayPoints",
+            self.dataset.time_format,
             "parquet",
             "",
             "true",
@@ -106,8 +96,8 @@ class StayDetection:
         )
         if findHomeAndWork:
             pipeline.getHomeWorkLocation(
-                self.output_path + "/StayPoints",
-                self.output_path + "/StayPointsWithHomeWork",
+                self.dataset.output_path + "/StayPoints",
+                self.dataset.output_path + "/StayPointsWithHomeWork",
                 self.param_file_path,
             )
             return "Stay detection completed with home and work locations labeled"
@@ -124,8 +114,8 @@ class StayDetection:
                 f"Resolution must be smaller than {params['hexResolution']}"
             )
         pipeline.getODMatrix(
-            self.output_path + "/StayPointsWithHomeWork",
-            self.output_path + f"""/HomeWorkODMatrix/Resolution{resolution}""",
+            self.dataset.output_path + "/StayPointsWithHomeWork",
+            self.dataset.output_path + f"""/HomeWorkODMatrix/Resolution{resolution}""",
             resolution,
         )
         return "OD matrix based on home and work locations"
@@ -138,17 +128,17 @@ class StayDetection:
 
     @spark_session
     def summarize(spark, self):
-        with open(self.output_path + "/config.json", "r") as f:
+        with open(self.dataset.output_path + "/config.json", "r") as f:
             params = json.load(f)
         pipeline = self._get_pipeline_instance(spark)
         if params["findHomeAndWork"]:
-            input_path = self.output_path + "/StayPointsWithHomeWork"
+            input_path = self.dataset.output_path + "/StayPointsWithHomeWork"
         else:
-            input_path = self.output_path + "/StayPoints"
+            input_path = self.dataset.output_path + "/StayPoints"
 
         pipeline.getStayDurationDistribution(
             input_path,
-            self.output_path + "/Metrics/StayDurationDistribution",
+            self.dataset.output_path + "/Metrics/StayDurationDistribution",
         )
 
         # pipeline.getLocationDistribution(
@@ -158,11 +148,11 @@ class StayDetection:
 
         pipeline.getDailyVisitedLocation(
             input_path,
-            self.output_path + "/Metrics/DailyVisitedLocations",
+            self.dataset.output_path + "/Metrics/DailyVisitedLocations",
         )
         pipeline.getDepartureTimeDistribution(
             input_path,
-            self.output_path + "/Metrics/DepartureTimeDistribution",
+            self.dataset.output_path + "/Metrics/DepartureTimeDistribution",
         )
 
         return None
