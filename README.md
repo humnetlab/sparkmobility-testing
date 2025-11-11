@@ -4,7 +4,7 @@
 ![GitHub](https://img.shields.io/github/license/scikit-mobility/scikit-mobility)
 ![GitHub contributors](https://img.shields.io/github/contributors/scikit-mobility/scikit-mobility) -->
 
-![Python CI](https://github.com/humnetlab/sparkmobility/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/humnetlab/sparkmobility/actions/workflows/ci.yaml/badge.svg)
 ![release](https://img.shields.io/github/v/release/humnetlab/sparkmobility?include_prereleases&cacheSeconds=3600)
 ![GitHub contributors](https://img.shields.io/github/contributors/humnetlab/sparkmobility?cacheSeconds=3600)
 
