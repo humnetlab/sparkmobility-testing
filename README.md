@@ -4,7 +4,7 @@
 ![GitHub](https://img.shields.io/github/license/scikit-mobility/scikit-mobility)
 ![GitHub contributors](https://img.shields.io/github/contributors/scikit-mobility/scikit-mobility) -->
 
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/humnetlab/sparkmobility?include_prereleases)
+![release](https://img.shields.io/github/v/release/humnetlab/sparkmobility?include_prereleases&cacheSeconds=3600)
 ![GitHub contributors](https://img.shields.io/github/contributors/humnetlab/sparkmobility)
 
 # sparkmobility -  A Spark-based Python Library for Processing, Modeling, and Analyzing Large Mobility Datasets
