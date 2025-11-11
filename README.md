@@ -5,7 +5,7 @@
 ![GitHub contributors](https://img.shields.io/github/contributors/scikit-mobility/scikit-mobility) -->
 
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/humnetlab/sparkmobility?include_prereleases)
-![GitHub contributors](https://img.shields.io/github/contributors/humnetlab/sparkmobility-testing)
+![GitHub contributors](https://img.shields.io/github/contributors/humnetlab/sparkmobility)
 
 # sparkmobility -  A Spark-based Python Library for Processing, Modeling, and Analyzing Large Mobility Datasets
 
@@ -206,7 +206,7 @@ To import `sparkmobility`, simply call the following:
 >>> sm.config["TEMP_DIR"] = "/my_path/to_tmp_folder"
 ```
 
-    JAR file not found at /data_1/albert/sparkmobility-testing/sparkmobility/lib/sparkmobility010.jar. Downloading from GCS...
+    JAR file not found at /data_1/albert/sparkmobility/sparkmobility/lib/sparkmobility010.jar. Downloading from GCS...
     Download complete.
     Spark already installed.
     Environment variables set for current session.
