@@ -1,16 +1,17 @@
-import matplotlib
-import matplotlib.gridspec as gridspec
-import matplotlib.pyplot as plt
-import numpy as np
-import seaborn as sns
-from matplotlib.colors import LinearSegmentedColormap
-from matplotlib.ticker import MultipleLocator
-from sparkmobility.utils.session import create_spark_session
+import warnings
+
 import folium
 import h3
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
-import warnings
+import seaborn as sns
 from branca.colormap import linear
+from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.ticker import MultipleLocator
+
+from sparkmobility.utils.session import create_spark_session
 
 warnings.filterwarnings("ignore")
 
@@ -177,8 +178,8 @@ def plot_flow(
     m = folium.Map(
         location=map_center,
         zoom_start=10,
-        width=800,
-        height=500,
+        width=900,
+        height=630,
         tiles="CartoDB positron",
     )
 
@@ -213,9 +214,9 @@ def plot_flow(
     return m
 
 
-def plot_count(df, h3_index_col_name, resolution):
+def plot_count(df, h3_index_col_name, hex_resolution):
     df["h3_res"] = df[h3_index_col_name].apply(
-        lambda x: h3.cell_to_parent(x, resolution)
+        lambda x: h3.cell_to_parent(x, hex_resolution)
     )
     count_df = df.groupby("h3_res").sum("count").reset_index()
     count_df["log_count"] = np.log10(count_df["count"])
@@ -227,8 +228,8 @@ def plot_count(df, h3_index_col_name, resolution):
     m = folium.Map(
         location=map_center,
         zoom_start=10,
-        width=800,
-        height=500,
+        width=900,
+        height=630,
         tiles="CartoDB positron",
     )
     colormap = linear.Blues_09.scale(

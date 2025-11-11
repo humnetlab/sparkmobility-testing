@@ -1,5 +1,5 @@
-from pyspark.sql import functions as F
-
+import folium
+import h3
 import matplotlib
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
@@ -7,11 +7,9 @@ import numpy as np
 import seaborn as sns
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.ticker import MultipleLocator
-from sparkmobility.utils.session import create_spark_session
-import folium
-import h3
+from pyspark.sql import functions as F
 
-import numpy as np
+from sparkmobility.utils.session import create_spark_session
 
 sns.set(style="whitegrid", font_scale=1.5)
 custom_colors = [
@@ -44,59 +42,89 @@ class UserSelection:
 
         df_grouped = (
             df.groupBy("caid")
-            .agg(F.count("*").alias("num_stays"),
+            .agg(
+                F.count("*").alias("num_stays"),
                 F.min("stay_start_timestamp").alias("first_stay"),
-                F.max("stay_end_timestamp").alias("last_stay"))
+                F.max("stay_end_timestamp").alias("last_stay"),
+            )
             .withColumn(
                 "duration_days",
-                F.round((F.unix_timestamp("last_stay") - F.unix_timestamp("first_stay")) / 86400).cast("int")
+                F.round(
+                    (F.unix_timestamp("last_stay") - F.unix_timestamp("first_stay"))
+                    / 86400
+                ).cast("int"),
             )
         )
 
-        active_level = df_grouped.groupBy("duration_days", "num_stays").count().orderBy("duration_days", "num_stays").toPandas()
+        active_level = (
+            df_grouped.groupBy("duration_days", "num_stays")
+            .count()
+            .orderBy("duration_days", "num_stays")
+            .toPandas()
+        )
 
         selected_users = df_grouped.filter(
-            (F.col("num_stays") >= num_stay_points_range[0]) &
-            (F.col("num_stays") <= num_stay_points_range[1]) &
-            (F.col("duration_days") >= time_span_days_range[0]) &
-            (F.col("duration_days") <= time_span_days_range[1])
+            (F.col("num_stays") >= num_stay_points_range[0])
+            & (F.col("num_stays") <= num_stay_points_range[1])
+            & (F.col("duration_days") >= time_span_days_range[0])
+            & (F.col("duration_days") <= time_span_days_range[1])
         ).select("caid")
-    
+
         filtered_df = df.join(selected_users, on="caid", how="inner")
 
         self.dataset.num_total_users = df.select("caid").distinct().count()
         self.dataset.num_filtered_users = selected_users.count()
 
-        filtered_df.write.mode("overwrite").parquet(self.dataset.output_path + "/FilteredUserStayPoints")
+        filtered_df.write.mode("overwrite").parquet(
+            self.dataset.output_path + "/FilteredUserStayPoints"
+        )
 
-        fig, ax = self._visualize(active_level, num_stay_points_range, time_span_days_range)
+        fig, ax = self._visualize(
+            active_level, num_stay_points_range, time_span_days_range
+        )
 
         print("Total users:", self.dataset.num_total_users)
-        print("Filtered users:", self.dataset.num_filtered_users, "\n Saved to:", self.dataset.output_path + "/FilteredUserStayPoints")
-
+        print(
+            "Filtered users:",
+            self.dataset.num_filtered_users,
+            "\n Saved to:",
+            self.dataset.output_path + "/FilteredUserStayPoints",
+        )
+        print(
+            "Filtered users saved to:",
+            self.dataset.output_path + "/FilteredUserStayPoints",
+        )
         return fig, ax
 
     @staticmethod
     def _visualize(active_level, num_stay_points_range, time_span_days_range):
-        pivot = active_level.pivot(index='duration_days', columns='num_stays', values='count').fillna(0)
-        log_data = np.log10(pivot + 1) 
-        mask = (pivot.values == 0)
+        pivot = active_level.pivot(
+            index="duration_days", columns="num_stays", values="count"
+        ).fillna(0)
+        log_data = np.log10(pivot + 1)
+        mask = pivot.values == 0
         masked_data = np.ma.masked_where(mask, log_data.values)
 
-        cmap_masked = LinearSegmentedColormap.from_list("custom_cmap_masked", custom_colors)
-        cmap_masked.set_bad('white')
+        cmap_masked = LinearSegmentedColormap.from_list(
+            "custom_cmap_masked", custom_colors
+        )
+        cmap_masked.set_bad("white")
 
         fig, ax = plt.subplots(figsize=(6, 5), dpi=300)
         ax.grid(False)
         ax.minorticks_off()
         ax.xaxis.grid(False)
         ax.yaxis.grid(False)
-        im = ax.imshow(masked_data, aspect='auto', cmap=cmap_masked)
+        im = ax.imshow(masked_data, aspect="auto", cmap=cmap_masked)
 
-        rect = plt.Rectangle((num_stay_points_range[0], time_span_days_range[0]), 
-                             (num_stay_points_range[1] - num_stay_points_range[0]), 
-                             (time_span_days_range[1] - time_span_days_range[0]), 
-                             linewidth=2, edgecolor=custom_colors[-1], facecolor='none')
+        rect = plt.Rectangle(
+            (num_stay_points_range[0], time_span_days_range[0]),
+            (num_stay_points_range[1] - num_stay_points_range[0]),
+            (time_span_days_range[1] - time_span_days_range[0]),
+            linewidth=2,
+            edgecolor=custom_colors[-1],
+            facecolor="none",
+        )
         ax.add_patch(rect)
 
         num_cols = log_data.shape[1]
@@ -117,14 +145,10 @@ class UserSelection:
         ax.set_yticklabels(log_data.index[yticks])
         ax.invert_yaxis()
 
-        ax.set_xlabel('Number of Stay Points')
-        ax.set_ylabel('Time Span (Days)')
+        ax.set_xlabel("Number of Stay Points")
+        ax.set_ylabel("Time Span (Days)")
         cbar = fig.colorbar(im, ax=ax)
-        cbar.set_label('Log10 Number of Users')
+        cbar.set_label("Log10 Number of Users")
         plt.tight_layout()
-        
+
         return fig, ax
-
-        
-
-

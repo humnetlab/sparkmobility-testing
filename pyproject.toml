@@ -16,6 +16,9 @@ authors = [
 requires-python = ">=3.11"
 
 dependencies = [
+  "powerlaw>=1.5",
+  "h3spark>=0.0.4",
+  "h3>=4.1",
   "censusdis>=1.4.0",
   "matplotlib>=3.8.4",
   "tqdm>=4.66.4",

@@ -1,18 +1,9 @@
-import copy
-import math
-
-# from ..utils.county_tesslation import tesselate_county
-from sparkmobility.utils.county_tesslation import tesselate_county
-import folium
-import geopandas as gpd
-import h3  # H3 v4
-import matplotlib.pyplot as plt
+import h3
 import numpy as np
 import pandas as pd
 import statsmodels as sm
 from geopy.distance import geodesic
 from shapely.geometry import Point, Polygon
-from sklearn.preprocessing import StandardScaler
 from statsmodels.genmod.generalized_linear_model import GLM
 from tqdm import tqdm
 
@@ -355,6 +346,14 @@ class Gravity:
         Fit the gravity model using observed flow data.
         """
         if self.is_h3_hexagon:
+            if h3.get_resolution(flow_df["origin"][0]) != h3.get_resolution(
+                relevance_df["index"][0]
+            ):
+                raise ValueError(
+                    f"The H3 resolution of flow_df and relevance_df do not match. The resolution of the flow df is {h3.get_resolution(flow_df['origin'][0])}, "
+                    f"while the resolution of the relevance df is {h3.get_resolution(relevance_df['index'][0])}."
+                )
+
             unique_h3_index = relevance_df["index"].unique()
             h3center_mapping = {
                 h3_index: self._h3_index_to_centroid(h3_index)
@@ -399,150 +398,3 @@ class Gravity:
         self.destination_exp = self.get_str("destination_exp")[0]
 
         return result
-
-    # -------------- Data prep utilities (static methods) --------------
-
-    @staticmethod
-    def get_outflow_hex_df(
-        outflow_df_path,
-        name_outflow_origin,
-        name_outflow_outflow,
-        hex_resolution,
-        pop_df,
-    ):
-        """Read outflow csv and aggregate to the target H3 resolution; align with population df."""
-        flow_hex_df = pd.read_csv(outflow_df_path)
-        flow_hex_df = flow_hex_df.rename(
-            columns={
-                name_outflow_origin: "origin",
-                name_outflow_outflow: "total_outflow",
-            }
-        )
-
-        unique_h3_indices = flow_hex_df["origin"].unique()
-        resolution_mapping = {
-            h3_index: h3.cell_to_parent(h3_index, hex_resolution)
-            if h3.get_resolution(h3_index) != hex_resolution
-            else h3_index
-            for h3_index in unique_h3_indices
-        }
-        flow_hex_df["origin"] = flow_hex_df["origin"].map(resolution_mapping)
-
-        outflow_hex_df = flow_hex_df.groupby("origin", as_index=False).agg(
-            {"total_outflow": "sum"}
-        )
-
-        valid_indices = set(pop_df["index"])
-        filtered_outflow_df = outflow_hex_df[
-            outflow_hex_df["origin"].isin(valid_indices)
-        ]
-        outflow_hex_df_with_pop = pd.merge(
-            filtered_outflow_df, pop_df, left_on="origin", right_on="index", how="left"
-        )
-        return outflow_hex_df_with_pop
-
-    @staticmethod
-    def get_actual_flow_hex_df(
-        actual_flow_df_path,
-        name_caid,
-        name_origin,
-        name_destination,
-        name_distance,
-        hex_resolution,
-        pop_df=None,
-    ):
-        """Read parquet OD, map to target H3 resolution, aggregate and filter."""
-        flow_hex_df = pd.read_parquet(actual_flow_df_path)
-        flow_hex_df = flow_hex_df.rename(
-            columns={
-                name_caid: "caid",
-                name_origin: "origin",
-                name_destination: "destination",
-                name_distance: "distance",
-            }
-        )
-
-        unique_origins = flow_hex_df["origin"].unique()
-        unique_destinations = flow_hex_df["destination"].unique()
-        unique_h3_indices = set(unique_origins).union(set(unique_destinations))
-
-        resolution_mapping = {
-            h3_index: h3.cell_to_parent(h3_index, hex_resolution)
-            if h3.get_resolution(h3_index) != hex_resolution
-            else h3_index
-            for h3_index in unique_h3_indices
-        }
-        flow_hex_df["origin"] = flow_hex_df["origin"].map(resolution_mapping)
-        flow_hex_df["destination"] = flow_hex_df["destination"].map(resolution_mapping)
-
-        flow_hex_df = flow_hex_df.groupby(
-            ["origin", "destination"], as_index=False
-        ).agg(flow=("caid", "count"), distance=("distance", "first"))
-
-        flow_hex_df = flow_hex_df[flow_hex_df["origin"] != flow_hex_df["destination"]]
-
-        if pop_df is not None:
-            valid_indices = set(pop_df["index"])
-            filtered_flow_df = flow_hex_df[
-                flow_hex_df["origin"].isin(valid_indices)
-                & flow_hex_df["destination"].isin(valid_indices)
-            ]
-            filtered_flow_df.reset_index(drop=True, inplace=True)
-            return filtered_flow_df
-        else:
-            flow_hex_df.reset_index(drop=True, inplace=True)
-            return flow_hex_df
-
-    @staticmethod
-    def obtain_population_data(
-        state_fips_codes,
-        county_fips_codes,
-        hex_resolution,
-        year,
-        census_dataset,
-        projection_crs,
-        census_variables,
-    ):
-        """Iterate states/counties and tessellate to H3 grid with census attributes."""
-        pop_df = gpd.GeoDataFrame()
-        for state_fips in state_fips_codes:
-            for county_fips in county_fips_codes.get(state_fips, []):
-                pop_df_i = tesselate_county(
-                    state_fips_code=state_fips,
-                    county_fips_code=county_fips,
-                    hex_resolution=hex_resolution,
-                    year=year,
-                    census_dataset=census_dataset,
-                    projection_crs=projection_crs,
-                    census_variables=census_variables,
-                )
-                pop_df = pd.concat([pop_df, pop_df_i], ignore_index=True)
-        return pop_df
-
-    @staticmethod
-    def obtain_relevance_data_at_resolution(
-        relevance_df, colname_h3_index, colname_caid, hex_resolution
-    ):
-        """Map raw relevance (stays) to target H3 resolution and build GeoDataFrame."""
-        relevance_df = relevance_df.rename(columns={colname_h3_index: "index"})
-
-        unique_h3_indices = relevance_df["index"].unique()
-        resolution_mapping = {
-            h3_index: h3.cell_to_parent(h3_index, hex_resolution)
-            if h3.get_resolution(h3_index) != hex_resolution
-            else h3_index
-            for h3_index in unique_h3_indices
-        }
-        relevance_df["index"] = relevance_df["index"].map(resolution_mapping)
-
-        relevance_df = relevance_df.groupby("index", as_index=False).agg(
-            stay_count=(colname_caid, "count")
-        )
-
-        relevance_df["geometry"] = relevance_df["index"].apply(
-            lambda ix: Polygon([(lon, lat) for (lat, lon) in h3.cell_to_boundary(ix)])
-        )
-        relevance_gdf = gpd.GeoDataFrame(
-            relevance_df, geometry="geometry", crs="EPSG:4326"
-        )
-        return relevance_gdf

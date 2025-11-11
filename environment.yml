@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - powerlaw=1.5
   - appnope=0.1.4
   - asttokens=3.0.0
   - bzip2=1.0.8

@@ -23,11 +23,14 @@ def create_spark_session():
             "spark.executor.extraJavaOptions", f"-Djava.io.tmpdir={config['TEMP_DIR']}"
         )
         .config("spark.sql.session.timeZone", "UTC")
-        .config("spark.sql.shuffle.partitions", "96")
+        .config("spark.sql.shuffle.partitions", "1000")
         .config("spark.default.parallelism", "96")
         .config("spark.shuffle.io.maxRetries", "10")
         .config("spark.shuffle.io.retryWait", "5s")
         .config("spark.reducer.maxReqsInFlight", "1")
+        .config("spark.sql.adaptive.enabled", "true")
+        .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
+        .config("spark.sql.adaptive.skewJoin.enabled", "true")
         .getOrCreate()
     )
 

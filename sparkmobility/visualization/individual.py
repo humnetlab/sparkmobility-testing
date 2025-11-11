@@ -1,3 +1,5 @@
+import folium
+import h3
 import matplotlib
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
@@ -5,9 +7,8 @@ import numpy as np
 import seaborn as sns
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.ticker import MultipleLocator
+
 from sparkmobility.utils.session import create_spark_session
-import folium
-import h3
 
 sns.set(style="whitegrid", font_scale=1.5)
 custom_colors = [

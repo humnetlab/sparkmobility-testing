@@ -1,19 +1,14 @@
+import json
 import os
 
-import json
-
-import numpy as np
-
-from censusdis.maps import ShapeReader
 import censusdis.data as ced
-
 import geopandas as gpd
-
+import h3
+import numpy as np
 import shapely
+from censusdis.maps import ShapeReader
 from shapely.geometry import Polygon
 from shapely.geometry.multipolygon import MultiPolygon
-
-import h3
 
 TOTAL_POP = "B01003_001E"
 

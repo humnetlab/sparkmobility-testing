@@ -28,7 +28,9 @@ class StayDetection:
                 }
                 json.dump(params, f, indent=4)
 
-        self.param_file_path = os.path.abspath(self.dataset.output_path + "/config.json")
+        self.param_file_path = os.path.abspath(
+            self.dataset.output_path + "/config.json"
+        )
 
     def _create_hashmap(self, spark):
         # hashmap = spark._jvm.java.util.HashMap()
@@ -45,36 +47,36 @@ class StayDetection:
     def get_stays(
         spark,
         self,
-        deltaT=300,
-        spatialThreshold=300,
-        speedThreshold=6.0,
-        temporalThreshold=300,
-        hexResolution=8,
-        regionalTemporalThreshold=3600,
+        delta_t=300,
+        spatial_threshold=300,
+        speed_threshold=6.0,
+        temporal_threshold=300,
+        hex_resolution=8,
+        regional_temporal_threshold=3600,
         passing=True,
-        homeToWork=8,
-        workToHome=19,
-        workDistanceLimit=500,
-        workFreqCountLimit=3,
-        findHomeAndWork=True,
+        home_to_work=8,
+        work_to_home=19,
+        work_distance_limit=500,
+        work_freq_count_limit=3,
+        find_home_and_work=True,
     ):
         with open(self.dataset.output_path + "/config.json", "r") as f:
             params = json.load(f)
 
         params.update(
             {
-                "deltaT": deltaT,
-                "spatialThreshold": spatialThreshold,
-                "speedThreshold": speedThreshold,
-                "temporalThreshold": temporalThreshold,
-                "hexResolution": hexResolution,
-                "regionalTemporalThreshold": regionalTemporalThreshold,
+                "deltaT": delta_t,
+                "spatialThreshold": spatial_threshold,
+                "speedThreshold": speed_threshold,
+                "temporalThreshold": temporal_threshold,
+                "hexResolution": hex_resolution,
+                "regionalTemporalThreshold": regional_temporal_threshold,
                 "passing": passing,
-                "homeToWork": homeToWork,
-                "workToHome": workToHome,
-                "workDistanceLimit": workDistanceLimit,
-                "workFreqCountLimit": workFreqCountLimit,
-                "findHomeAndWork": findHomeAndWork,
+                "homeToWork": home_to_work,
+                "workToHome": work_to_home,
+                "workDistanceLimit": work_distance_limit,
+                "workFreqCountLimit": work_freq_count_limit,
+                "findHomeAndWork": find_home_and_work,
             }
         )
 
@@ -94,7 +96,7 @@ class StayDetection:
             columnNames,
             self.param_file_path,
         )
-        if findHomeAndWork:
+        if find_home_and_work:
             pipeline.getHomeWorkLocation(
                 self.dataset.output_path + "/StayPoints",
                 self.dataset.output_path + "/StayPointsWithHomeWork",
@@ -105,18 +107,19 @@ class StayDetection:
             return "Stay detection completed"
 
     @spark_session
-    def get_home_work_od_matrix(spark, self, resolution) -> None:
+    def get_home_work_od_matrix(spark, self, hex_resolution) -> None:
         pipeline = self._get_pipeline_instance(spark)
         with open(self.param_file_path, "r") as f:
             params = json.load(f)
-        if resolution > params["hexResolution"]:
+        if hex_resolution > params["hexResolution"]:
             raise ValueError(
                 f"Resolution must be smaller than {params['hexResolution']}"
             )
         pipeline.getODMatrix(
             self.dataset.output_path + "/StayPointsWithHomeWork",
-            self.dataset.output_path + f"""/HomeWorkODMatrix/Resolution{resolution}""",
-            resolution,
+            self.dataset.output_path
+            + f"""/HomeWorkODMatrix/Resolution{hex_resolution}""",
+            hex_resolution,
         )
         return "OD matrix based on home and work locations"
 
