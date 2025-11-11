@@ -4,8 +4,10 @@
 ![GitHub](https://img.shields.io/github/license/scikit-mobility/scikit-mobility)
 ![GitHub contributors](https://img.shields.io/github/contributors/scikit-mobility/scikit-mobility) -->
 
+![Python CI](https://github.com/humnetlab/sparkmobility/actions/workflows/ci.yml/badge.svg)
 ![release](https://img.shields.io/github/v/release/humnetlab/sparkmobility?include_prereleases&cacheSeconds=3600)
-![GitHub contributors](https://img.shields.io/github/contributors/humnetlab/sparkmobility)
+![GitHub contributors](https://img.shields.io/github/contributors/humnetlab/sparkmobility?cacheSeconds=3600)
+
 
 # sparkmobility -  A Spark-based Python Library for Processing, Modeling, and Analyzing Large Mobility Datasets
 
@@ -48,7 +50,7 @@ Key features of `sparkmobility` include:
 	- [StayDetection](#StayDetection)
 	- [UserSelection](#UserSelection)
 
-<!-- 
+<!--
 <a id='documentation'></a>
 ## Documentation
 The documentation of scikit-mobility's classes and functions is available at: https://scikit-mobility.github.io/scikit-mobility/
@@ -194,7 +196,7 @@ You can some tutorials on scikit-mobility here: https://github.com/scikit-mobili
 ## Examples
 
 <a id='Import'></a>
-### Import and configure `sparkmobility` 
+### Import and configure `sparkmobility`
 
 To import `sparkmobility`, simply call the following:
 
@@ -219,7 +221,7 @@ Spark sessions can be configured through the `sparkmobility` configuration file.
 - `sm.config['CORES']` sets the number of CPU cores for the parallelism in spark ;
 - `sm.config['MEMORY']` sets the amount of memory allocated for both the executor and driver in spark ;
 - `sm.config['LOG_LEVEL']` sets the level of messages during compue; ;
-- `sm.config['TEMP_DIR']` sets the path to the directory that holds the temporary files when running the pipelines. It is important to set it to a directory that has sufficient storage in disk to prevent out of storage error. 
+- `sm.config['TEMP_DIR']` sets the path to the directory that holds the temporary files when running the pipelines. It is important to set it to a directory that has sufficient storage in disk to prevent out of storage error.
 
 When imported for the first time, `sparkmobility` automatically searches for the `.jar` file that contains the pre-compiled pipelines developed in Scala. If not, `sparkmobility` automatically downloads from Google Cloud Storage.
 
@@ -235,7 +237,7 @@ In sparkmobility, the class `MobilityDataset` describes the mobility dataset. It
 - `column_mappings` (type: dict) ;
 
 Additionally, it is optional to define the time period and region of interests, which help reduce the computation time during the stay detection phase by selecting a subset of records:
-- `start_datetime` (type: datetime) ; 
+- `start_datetime` (type: datetime) ;
 - `end_datetime` (type: datetime) ;
 - `longitude` (type: list);
 - `laitude` (type: list);
@@ -249,7 +251,7 @@ Initialize a `MobilityDataset`:
 >>> # create a MobilityDataset
 >>> myDataset = MobilityDataset(
         dataset_name="example_dataset",
-        raw_data_path="example_dataset_raw_lbs", 
+        raw_data_path="example_dataset_raw_lbs",
         processed_data_path="example_dataset_output",
         column_mappings={"caid": "caid",
                          "latitude": "latitude",
@@ -276,7 +278,7 @@ Initialize a `MobilityDataset`:
 
 ```python
 >>> from sparkmobility.processing.stay_detection import StayDetection
-# Initialize the StayDetection instance 
+# Initialize the StayDetection instance
 >>> stays = StayDetection(MobilityDataset=myDataset)
 # Conduct stay detection
 >>> stays.get_stays(hex_resolution=9)
@@ -369,7 +371,7 @@ The method `UserSelection.filter_users` returns a visualization of the number of
 >>> user_selection = UserSelection(myDataset)
 # Filter users based on the number of stay points and the active timespan
 >>> fig, ax = user_selection.filter_users(
-        num_stay_points_range=[100, 800], 
+        num_stay_points_range=[100, 800],
         time_span_days_range=[15, 30]
     )
 ```

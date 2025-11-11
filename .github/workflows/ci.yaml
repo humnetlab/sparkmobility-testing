@@ -53,7 +53,7 @@ jobs:
           python3 -m poetry run tox
 
       - name: "Upload Artifact"
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: code-coverage
           path: coverage
@@ -91,7 +91,7 @@ jobs:
 
 
       - name: "Download Artifact"
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: code-coverage
           path: static/coverage
