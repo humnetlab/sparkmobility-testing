@@ -8,10 +8,9 @@
 ![release](https://img.shields.io/github/v/release/humnetlab/sparkmobility?include_prereleases&cacheSeconds=3600)
 ![GitHub contributors](https://img.shields.io/github/contributors/humnetlab/sparkmobility?cacheSeconds=3600)
 
-
 # sparkmobility -  A Spark-based Python Library for Processing, Modeling, and Analyzing Large Mobility Datasets
 
-<!-- <img src="logo_skmob.png" width=300/> -->
+<img src="resources/sparkmobility_icon.png" width=150/>
 
 <!-- ###### Try `scikit-mobility` without installing it
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/scikitmobility.svg?style=social&label=Follow%20%40scikitmobility)](https://twitter.com/scikitmobility)
